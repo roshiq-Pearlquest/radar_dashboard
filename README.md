@@ -10,6 +10,7 @@ Radar
 
 ```
 radar_dashboard/
+├── .gitignore
 ├── README.md
 ├── assets/
 ├── radar_analytics.py

@@ -644,33 +644,23 @@ def render_card_grid(cards: list[dict[str, str]], kind: str = "metrics"):
         extra_class = " alt" if card.get("alt") else ""
         if kind == "metrics":
             card_markup.append(
-                f"""
-                <div class="{card_class}{extra_class}">
-                    <div class="label">{card['label']}</div>
-                    <div class="value">{card['value']}</div>
-                    <div class="hint">{card['hint']}</div>
-                </div>
-                """
+                f'<div class="{card_class}{extra_class}">'
+                f'<div class="label">{card["label"]}</div>'
+                f'<div class="value">{card["value"]}</div>'
+                f'<div class="hint">{card["hint"]}</div>'
+                "</div>"
             )
         else:
             card_markup.append(
-                f"""
-                <div class="{card_class}{extra_class}">
-                    <div class="label">{card['label']}</div>
-                    <div class="value">{card['value']}</div>
-                    <div class="caption">{card['caption']}</div>
-                </div>
-                """
+                f'<div class="{card_class}{extra_class}">'
+                f'<div class="label">{card["label"]}</div>'
+                f'<div class="value">{card["value"]}</div>'
+                f'<div class="caption">{card["caption"]}</div>'
+                "</div>"
             )
 
-    st.markdown(
-        f"""
-        <div class="responsive-card-grid {grid_class}">
-            {''.join(card_markup)}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    html = f'<div class="responsive-card-grid {grid_class}">{"".join(card_markup)}</div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def style_figure(fig: go.Figure) -> go.Figure:

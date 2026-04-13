@@ -1003,7 +1003,7 @@ with st.sidebar:
             weekly_summary["week_index"] == value, "week_display"
         ].iloc[0],
     )
-    st.caption("Campaign period is fixed from the start of this month through the same month next year.")
+    st.caption("select")
 
 focus_week_meta = weekly_summary.loc[
     weekly_summary["week_index"] == focus_week_index

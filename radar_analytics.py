@@ -21,6 +21,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 ROOT_DIR = Path(__file__).parent
 LOGO_PATH = ROOT_DIR / "assets" / "pearlquest-logo.png"
+HERO_IMAGE_PATH = ROOT_DIR / "assets" / "wow-pasta.png"
 DEFAULT_ICON = "📡"
 API_KEY = "abdtsmfubvzj19l39i0uis5oyzerof71"
 BASE_URL = "https://app.datarealities.com"
@@ -41,8 +42,20 @@ def image_to_base64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode("utf-8")
 
 
+def get_default_campaign_window(today_value: date) -> tuple[date, date]:
+    start_date = today_value.replace(day=1)
+    target_year = start_date.year + 1
+    target_month = start_date.month
+    if target_month == 12:
+        next_month = date(target_year + 1, 1, 1)
+    else:
+        next_month = date(target_year, target_month + 1, 1)
+    end_date = next_month - timedelta(days=1)
+    return start_date, end_date
+
+
 st.set_page_config(
-    page_title="PearlQuest Radar Analytics",
+    page_title="Zing Marketing Pilot Campaign",
     page_icon=load_page_icon(),
     layout="wide",
     initial_sidebar_state="expanded",
@@ -866,12 +879,13 @@ def build_anomaly_table(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def render_header(mac_address: str, start_date_value: date, end_date_value: date):
+def render_header(start_date_value: date, end_date_value: date):
     logo_markup = ""
-    if LOGO_PATH.exists():
+    hero_image_path = HERO_IMAGE_PATH if HERO_IMAGE_PATH.exists() else LOGO_PATH
+    if hero_image_path.exists():
         logo_markup = (
-            f'<div class="hero-logo-shell"><img src="data:image/png;base64,{image_to_base64(LOGO_PATH)}" '
-            'alt="PearlQuest logo"></div>'
+            f'<div class="hero-logo-shell"><img src="data:image/png;base64,{image_to_base64(hero_image_path)}" '
+            'alt="Campaign logo"></div>'
         )
 
     st.markdown(
@@ -880,15 +894,14 @@ def render_header(mac_address: str, start_date_value: date, end_date_value: date
             <div class="hero-grid">
                 {logo_markup}
                 <div>
-                    <div class="eyebrow">PearlQuest Interactive</div>
-                    <h1>Radar Sensor Intelligence Studio</h1>
+                    <div class="eyebrow">Powered by PearlQuest</div>
+                    <h1>Zing Marketing Pilot Campaign, Powered by PearlQuest</h1>
                     <p>
-                        Real-time target monitoring and cached historical analytics for session-based radar events.
-                        The dashboard below combines 2-second live polling, anomaly flagging, and date-wise engagement intelligence.
+                        Weekly campaign performance, engagement intelligence, and live audience monitoring
+                        for the WOW Pasta pilot activation powered by PearlQuest.
                     </p>
                     <div class="hero-tags">
-                        <span>Sensor MAC: {mac_address}</span>
-                        <span>Historical window: {start_date_value} to {end_date_value}</span>
+                        <span>Campaign window: {start_date_value} to {end_date_value}</span>
                     </div>
                 </div>
             </div>
@@ -941,22 +954,15 @@ def render_status_card(
 init_state()
 inject_styles()
 
-with st.sidebar:
-    if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width="stretch")
-    st.markdown("## Sensor Controls")
-    mac_address = st.text_input("Sensor MAC Address", value=DEFAULT_MAC_ADDRESS)
-    today = date.today()
-    default_start = today - timedelta(days=7)
-    start_date_value = st.date_input("Start Date", value=default_start)
-    end_date_value = st.date_input("End Date", value=today)
-    st.caption("Historical queries are cached for fast date switching.")
+mac_address = DEFAULT_MAC_ADDRESS
+today = date.today()
+start_date_value, end_date_value = get_default_campaign_window(today)
 
 if start_date_value > end_date_value:
     st.error("Start date must be before or equal to the end date.")
     st.stop()
 
-render_header(mac_address, start_date_value, end_date_value)
+render_header(start_date_value, end_date_value)
 
 try:
     historical_df, historical_zone_df = load_historical_data(
@@ -985,6 +991,9 @@ if weekly_summary.empty:
     st.stop()
 
 with st.sidebar:
+    if LOGO_PATH.exists():
+        st.image(str(LOGO_PATH), width="stretch")
+    st.markdown("## Focus Week")
     week_options = weekly_summary["week_index"].tolist()
     focus_week_index = st.selectbox(
         "Focus Week",
@@ -994,6 +1003,7 @@ with st.sidebar:
             weekly_summary["week_index"] == value, "week_display"
         ].iloc[0],
     )
+    st.caption("Campaign period is fixed from the start of this month through the same month next year.")
 
 focus_week_meta = weekly_summary.loc[
     weekly_summary["week_index"] == focus_week_index

@@ -1003,7 +1003,7 @@ with st.sidebar:
             weekly_summary["week_index"] == value, "week_display"
         ].iloc[0],
     )
-    st.caption("select")
+    st.caption("Campaign period is fixed from the start of this month through the same month next year.")
 
 focus_week_meta = weekly_summary.loc[
     weekly_summary["week_index"] == focus_week_index
@@ -1040,11 +1040,6 @@ summary_cards = [
         "label": "Peak Hour",
         "value": f"{peak_hour:02d}:00",
         "hint": "Most active hour across all sessions in the selected week.",
-    },
-    {
-        "label": "Conversion Rate",
-        "value": f"{conversion_rate:.1%}",
-        "hint": "Engaged sessions divided by total sessions for the selected week.",
     },
     {
         "label": "Avg Engagement Score",

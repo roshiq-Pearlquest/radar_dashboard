@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import date, datetime, time, timedelta, timezone
 import json
 from pathlib import Path
@@ -34,6 +35,10 @@ def load_page_icon():
     if Image is not None and LOGO_PATH.exists():
         return Image.open(LOGO_PATH)
     return DEFAULT_ICON
+
+
+def image_to_base64(path: Path) -> str:
+    return base64.b64encode(path.read_bytes()).decode("utf-8")
 
 
 st.set_page_config(
@@ -123,6 +128,31 @@ def inject_styles():
             min-height: 250px;
         }
 
+        .hero-grid {
+            display: grid;
+            grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+            gap: 1.2rem;
+            align-items: center;
+        }
+
+        .hero-logo-shell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 170px;
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 1rem;
+        }
+
+        .hero-logo-shell img {
+            width: 100%;
+            max-width: 220px;
+            height: auto;
+            object-fit: contain;
+        }
+
         .hero-shell .eyebrow {
             color: var(--orange);
             text-transform: uppercase;
@@ -175,6 +205,25 @@ def inject_styles():
             border-radius: 26px;
             padding: 1.1rem 1.2rem 0.5rem 1.2rem;
             margin-bottom: 1rem;
+        }
+
+        .panel-stack {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .responsive-card-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .responsive-card-grid.metrics {
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        }
+
+        .responsive-card-grid.bento {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
 
         .metric-card {
@@ -310,6 +359,39 @@ def inject_styles():
 
         .stAlert {
             border-radius: 18px;
+        }
+
+        @media (max-width: 1200px) {
+            .hero-shell h1 {
+                font-size: 2.45rem;
+            }
+        }
+
+        @media (max-width: 980px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-logo-shell {
+                min-height: 120px;
+            }
+
+            .hero-shell {
+                padding: 1.25rem;
+            }
+
+            .hero-shell h1 {
+                font-size: 2.1rem;
+            }
+
+            .responsive-card-grid.metrics,
+            .responsive-card-grid.bento {
+                grid-template-columns: 1fr;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
         }
         </style>
         """,
@@ -554,6 +636,43 @@ def render_bento_card(label: str, value: str, caption: str, alt: bool = False):
     )
 
 
+def render_card_grid(cards: list[dict[str, str]], kind: str = "metrics"):
+    card_class = "metric-card" if kind == "metrics" else "bento-card"
+    grid_class = "metrics" if kind == "metrics" else "bento"
+    card_markup = []
+    for card in cards:
+        extra_class = " alt" if card.get("alt") else ""
+        if kind == "metrics":
+            card_markup.append(
+                f"""
+                <div class="{card_class}{extra_class}">
+                    <div class="label">{card['label']}</div>
+                    <div class="value">{card['value']}</div>
+                    <div class="hint">{card['hint']}</div>
+                </div>
+                """
+            )
+        else:
+            card_markup.append(
+                f"""
+                <div class="{card_class}{extra_class}">
+                    <div class="label">{card['label']}</div>
+                    <div class="value">{card['value']}</div>
+                    <div class="caption">{card['caption']}</div>
+                </div>
+                """
+            )
+
+    st.markdown(
+        f"""
+        <div class="responsive-card-grid {grid_class}">
+            {''.join(card_markup)}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def style_figure(fig: go.Figure) -> go.Figure:
     fig.update_layout(
         template="plotly_dark",
@@ -695,29 +814,36 @@ def build_anomaly_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def render_header(mac_address: str, start_date_value: date, end_date_value: date):
-    left, right = st.columns([0.8, 1.9], gap="large")
-    with left:
-        if LOGO_PATH.exists():
-            st.image(str(LOGO_PATH), width="stretch")
-    with right:
-        st.markdown(
-            f"""
-            <div class="hero-shell">
-                <div class="eyebrow">PearlQuest Interactive</div>
-                <h1>Radar Sensor Intelligence Studio</h1>
-                <p>
-                    Real-time target monitoring and cached historical analytics for session-based radar events.
-                    The dashboard below combines 2-second live polling, anomaly flagging, and date-wise engagement intelligence.
-                </p>
-                <div class="hero-tags">
-                    <span>Sensor MAC: {mac_address}</span>
-                    <span>Historical window: {start_date_value} to {end_date_value}</span>
-                    <span>Theme: plotly_dark + glassmorphism</span>
+    logo_markup = ""
+    if LOGO_PATH.exists():
+        logo_markup = (
+            f'<div class="hero-logo-shell"><img src="data:image/png;base64,{image_to_base64(LOGO_PATH)}" '
+            'alt="PearlQuest logo"></div>'
+        )
+
+    st.markdown(
+        f"""
+        <div class="hero-shell">
+            <div class="hero-grid">
+                {logo_markup}
+                <div>
+                    <div class="eyebrow">PearlQuest Interactive</div>
+                    <h1>Radar Sensor Intelligence Studio</h1>
+                    <p>
+                        Real-time target monitoring and cached historical analytics for session-based radar events.
+                        The dashboard below combines 2-second live polling, anomaly flagging, and date-wise engagement intelligence.
+                    </p>
+                    <div class="hero-tags">
+                        <span>Sensor MAC: {mac_address}</span>
+                        <span>Historical window: {start_date_value} to {end_date_value}</span>
+                        <span>Theme: plotly_dark + glassmorphism</span>
+                    </div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_status_card(
@@ -822,118 +948,121 @@ avg_engagement_score = (
 )
 anomaly_count = int(focus_df["is_anomaly"].sum())
 
-summary_cols = st.columns(4, gap="large")
-with summary_cols[0]:
-    render_metric_card(
-        "Total Footfall",
-        f"{total_footfall:,}",
-        "Date-wise visitor sessions for the selected focus day.",
-    )
-with summary_cols[1]:
-    render_metric_card(
-        "Peak Hour",
-        f"{peak_hour:02d}:00",
-        "Busiest hour of the day based on session density.",
-    )
-with summary_cols[2]:
-    render_metric_card(
-        "Conversion Rate",
-        f"{conversion_rate:.1%}",
-        "Engaged sessions divided by total sessions.",
-    )
-with summary_cols[3]:
-    render_metric_card(
-        "Avg Engagement Score",
-        f"{avg_engagement_score:.1f}",
-        "Blended dwell and proximity score per session.",
-    )
+summary_cards = [
+    {
+        "label": "Total Footfall",
+        "value": f"{total_footfall:,}",
+        "hint": "Date-wise visitor sessions for the selected focus day.",
+    },
+    {
+        "label": "Peak Hour",
+        "value": f"{peak_hour:02d}:00",
+        "hint": "Busiest hour of the day based on session density.",
+    },
+    {
+        "label": "Conversion Rate",
+        "value": f"{conversion_rate:.1%}",
+        "hint": "Engaged sessions divided by total sessions.",
+    },
+    {
+        "label": "Avg Engagement Score",
+        "value": f"{avg_engagement_score:.1f}",
+        "hint": "Blended dwell and proximity score per session.",
+    },
+]
 
-bento_cols = st.columns([1, 1, 1, 1.15], gap="large")
-with bento_cols[0]:
-    render_bento_card(
-        "Impressions (2s+)",
-        f"{impressions:,}",
-        "Targets that remained in view long enough to register attention.",
+bento_cards = [
+    {
+        "label": "Impressions (2s+)",
+        "value": f"{impressions:,}",
+        "caption": "Targets that remained in view long enough to register attention.",
+    },
+    {
+        "label": "Engagements (30s+)",
+        "value": f"{engagements:,}",
+        "caption": "High-intent sessions that crossed the engagement threshold.",
+        "alt": True,
+    },
+    {
+        "label": "Average Dwell Time",
+        "value": f"{avg_dwell:.1f}s",
+        "caption": "Average time spent inside the tracking area for the selected day.",
+    },
+]
+
+
+@st.fragment(run_every="2s")
+def render_live_monitor():
+    render_section_header(
+        "Live Sensor Feed",
+        "Polling every 2 seconds with diff-based new target detection.",
     )
-with bento_cols[1]:
-    render_bento_card(
-        "Engagements (30s+)",
-        f"{engagements:,}",
-        "High-intent sessions that crossed the engagement threshold.",
-        alt=True,
-    )
-with bento_cols[2]:
-    render_bento_card(
-        "Average Dwell Time",
-        f"{avg_dwell:.1f}s",
-        "Average time spent inside the tracking area for the selected day.",
-    )
-with bento_cols[3]:
+    try:
+        live_df, _ = load_live_data(mac_address)
+        heartbeat_now = pd.Timestamp.utcnow().tz_localize(None)
+        st.session_state["last_successful_heartbeat"] = heartbeat_now
+        status = "ONLINE"
+        message = "API reachable and live polling is healthy."
 
-    @st.fragment(run_every="2s")
-    def render_live_monitor():
-        render_section_header(
-            "Live Sensor Feed",
-            "Polling every 2 seconds with diff-based new target detection.",
-        )
-        try:
-            live_df, _ = load_live_data(mac_address)
-            heartbeat_now = pd.Timestamp.utcnow().tz_localize(None)
-            st.session_state["last_successful_heartbeat"] = heartbeat_now
-            status = "ONLINE"
-            message = "API reachable and live polling is healthy."
-
-            if live_df.empty:
-                st.session_state["live_targets"] = set()
-                render_status_card(
-                    status="IDLE",
-                    latest_target="No recent targets",
-                    current_target_count=0,
-                    new_target_count=0,
-                    last_seen_value=st.session_state["last_sensor_event"],
-                    heartbeat_value=st.session_state["last_successful_heartbeat"],
-                    message="API is responding, but no targets were seen in the last 10 minutes.",
-                )
-                return
-
-            live_df = live_df.sort_values("log_creation_time")
-            current_targets = set(live_df["target_id"].astype(str))
-            previous_targets = st.session_state.get("live_targets", set())
-            new_targets = sorted(current_targets - previous_targets)
-
-            if st.session_state["live_initialized"] and new_targets:
-                st.toast(
-                    f"New Target Detected: {new_targets[0][:8]} ({len(new_targets)} new)",
-                    icon="🚨",
-                )
-
-            st.session_state["live_targets"] = current_targets
-            st.session_state["live_initialized"] = True
-            latest_row = live_df.iloc[-1]
-            st.session_state["last_sensor_event"] = latest_row["log_creation_time"]
-
+        if live_df.empty:
+            st.session_state["live_targets"] = set()
             render_status_card(
-                status=status,
-                latest_target=str(latest_row["target_id"])[:8],
-                current_target_count=len(current_targets),
-                new_target_count=len(new_targets),
-                last_seen_value=latest_row["log_creation_time"],
-                heartbeat_value=st.session_state["last_successful_heartbeat"],
-                message=message,
-            )
-        except requests.RequestException as exc:
-            render_status_card(
-                status="OFFLINE",
-                latest_target="Unavailable",
+                status="IDLE",
+                latest_target="No recent targets",
                 current_target_count=0,
                 new_target_count=0,
                 last_seen_value=st.session_state["last_sensor_event"],
                 heartbeat_value=st.session_state["last_successful_heartbeat"],
-                message=f"Sensor Offline: {exc}",
+                message="API is responding, but no targets were seen in the last 10 minutes.",
+            )
+            return
+
+        live_df = live_df.sort_values("log_creation_time")
+        current_targets = set(live_df["target_id"].astype(str))
+        previous_targets = st.session_state.get("live_targets", set())
+        new_targets = sorted(current_targets - previous_targets)
+
+        if st.session_state["live_initialized"] and new_targets:
+            st.toast(
+                f"New Target Detected: {new_targets[0][:8]} ({len(new_targets)} new)",
+                icon="🚨",
             )
 
+        st.session_state["live_targets"] = current_targets
+        st.session_state["live_initialized"] = True
+        latest_row = live_df.iloc[-1]
+        st.session_state["last_sensor_event"] = latest_row["log_creation_time"]
 
+        render_status_card(
+            status=status,
+            latest_target=str(latest_row["target_id"])[:8],
+            current_target_count=len(current_targets),
+            new_target_count=len(new_targets),
+            last_seen_value=latest_row["log_creation_time"],
+            heartbeat_value=st.session_state["last_successful_heartbeat"],
+            message=message,
+        )
+    except requests.RequestException as exc:
+        render_status_card(
+            status="OFFLINE",
+            latest_target="Unavailable",
+            current_target_count=0,
+            new_target_count=0,
+            last_seen_value=st.session_state["last_sensor_event"],
+            heartbeat_value=st.session_state["last_successful_heartbeat"],
+            message=f"Sensor Offline: {exc}",
+        )
+
+
+overview_left, overview_right = st.columns([1.7, 1.0], gap="large")
+with overview_left:
+    render_card_grid(summary_cards, kind="metrics")
+    render_card_grid(bento_cards, kind="bento")
+
+with overview_right:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_live_monitor()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 chart_top = st.columns(2, gap="large")
 

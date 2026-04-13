@@ -1042,6 +1042,11 @@ summary_cards = [
         "hint": "Most active hour across all sessions in the selected week.",
     },
     {
+        "label": "Average Dwell Time",
+        "value": f"{avg_dwell:.1f}s",
+        "hint": "Average time spent inside the tracking area for the selected week.",
+    },
+    {
         "label": "Avg Engagement Score",
         "value": f"{avg_engagement_score:.1f}",
         "hint": "Blended dwell and proximity score per session.",
@@ -1059,11 +1064,6 @@ bento_cards = [
         "value": f"{engagements:,}",
         "caption": "High-intent sessions that crossed the engagement threshold this week.",
         "alt": True,
-    },
-    {
-        "label": "Average Dwell Time",
-        "value": f"{avg_dwell:.1f}s",
-        "caption": "Average time spent inside the tracking area for the selected week.",
     },
 ]
 

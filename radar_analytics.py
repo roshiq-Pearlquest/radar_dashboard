@@ -1003,7 +1003,7 @@ with st.sidebar:
             weekly_summary["week_index"] == value, "week_display"
         ].iloc[0],
     )
-    st.caption("Selelct.")
+    st.caption("Campaign period is fixed from the start of this month through the same month next year.")
 
 focus_week_meta = weekly_summary.loc[
     weekly_summary["week_index"] == focus_week_index
@@ -1259,29 +1259,17 @@ with chart_bottom[0]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
         "Session Scatter",
-        "Weekly dwell time versus proximity with anomaly sessions highlighted in red.",
+        "Weekly dwell time versus proximity.",
     )
-    normal_df = focus_df.loc[~focus_df["is_anomaly"]]
-    anomaly_df = focus_df.loc[focus_df["is_anomaly"]]
     fig_scatter = go.Figure()
     fig_scatter.add_trace(
         go.Scatter(
-            x=normal_df["proximity_m"],
-            y=normal_df["dwell_tracking_area_sec"],
+            x=focus_df["proximity_m"],
+            y=focus_df["dwell_tracking_area_sec"],
             mode="markers",
             marker=dict(color="#56d5ff", size=8, opacity=0.65),
-            name="Normal",
-            text=normal_df["target_short"],
-        )
-    )
-    fig_scatter.add_trace(
-        go.Scatter(
-            x=anomaly_df["proximity_m"],
-            y=anomaly_df["dwell_tracking_area_sec"],
-            mode="markers",
-            marker=dict(color="#ff4242", size=11, opacity=0.9, symbol="diamond"),
-            name="Anomaly",
-            text=anomaly_df["target_short"],
+            name="Sessions",
+            text=focus_df["target_short"],
         )
     )
     fig_scatter.update_xaxes(title="Proximity (m)")
@@ -1292,25 +1280,9 @@ with chart_bottom[0]:
 with chart_bottom[1]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Anomaly Watchlist",
-        "Potential touch/collision or loitering sessions for the selected week.",
+        f"View Structured Session Table For {focus_week_meta['week_label']}",
+        "Detailed session records for the selected week.",
     )
-    anomaly_table = build_anomaly_table(focus_df)
-    if anomaly_table.empty:
-        st.success("No anomalies detected for the selected focus week.")
-    else:
-        st.dataframe(
-            anomaly_table,
-            use_container_width=True,
-            hide_index=True,
-        )
-    st.markdown(
-        f'<p class="mini-note">Flagged anomalies: {anomaly_count} session(s).</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with st.expander(f'View Structured Session Table For {focus_week_meta["week_label"]}'):
     session_table = focus_df[
         [
             "log_creation_time",
@@ -1323,3 +1295,4 @@ with st.expander(f'View Structured Session Table For {focus_week_meta["week_labe
         ]
     ].sort_values("log_creation_time", ascending=False)
     st.dataframe(session_table, use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)

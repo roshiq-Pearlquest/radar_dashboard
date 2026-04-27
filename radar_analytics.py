@@ -1410,35 +1410,22 @@ with chart_middle[1]:
     )
     render_card_grid(daily_summary_cards, kind="metrics")
     render_section_header(
-        "Day-Wise Engagement Trend",
-        "Daily engaged sessions across the selected week.",
+        "Session Scatter",
+        "Weekly dwell time versus proximity.",
     )
-    engagement_day_df = (
-        focus_df.groupby("event_date", as_index=False)["is_engaged"].sum()
-        .rename(columns={"is_engaged": "engagements"})
-        .sort_values("event_date")
-    )
-    engagement_day_df["day_label"] = pd.to_datetime(engagement_day_df["event_date"]).dt.strftime(
-        "%a"
-    )
-    engagement_day_df["day_display"] = pd.to_datetime(
-        engagement_day_df["event_date"]
-    ).dt.strftime("%a, %b %d")
     fig_heatmap = go.Figure()
     fig_heatmap.add_trace(
-        go.Bar(
-            x=engagement_day_df["day_label"],
-            y=engagement_day_df["engagements"],
-            marker=dict(color="#ff9a3d", line=dict(width=0)),
-            name="Engagements",
-            text=engagement_day_df["engagements"],
-            textposition="outside",
-            hovertemplate="%{text} engagements on %{customdata}<extra></extra>",
-            customdata=engagement_day_df["day_display"],
+        go.Scatter(
+            x=focus_df["proximity_m"],
+            y=focus_df["dwell_tracking_area_sec"],
+            mode="markers",
+            marker=dict(color="#56d5ff", size=8, opacity=0.65),
+            name="Sessions",
+            text=focus_df["target_short"],
         )
     )
-    fig_heatmap.update_xaxes(title="Day")
-    fig_heatmap.update_yaxes(title="Engagement")
+    fig_heatmap.update_xaxes(title="Proximity (m)")
+    fig_heatmap.update_yaxes(title="Dwell Time (s)")
     st.plotly_chart(style_figure(fig_heatmap), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1473,46 +1460,4 @@ with chart_extra_second[0]:
     )
     fig_hourly_heatmap.update_xaxes(title="Hour of Day")
     st.plotly_chart(style_figure(fig_hourly_heatmap), use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-chart_bottom = st.columns(2, gap="large")
-
-with chart_bottom[0]:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    render_section_header(
-        "Session Scatter",
-        "Weekly dwell time versus proximity.",
-    )
-    fig_scatter = go.Figure()
-    fig_scatter.add_trace(
-        go.Scatter(
-            x=focus_df["proximity_m"],
-            y=focus_df["dwell_tracking_area_sec"],
-            mode="markers",
-            marker=dict(color="#56d5ff", size=8, opacity=0.65),
-            name="Sessions",
-            text=focus_df["target_short"],
-        )
-    )
-    fig_scatter.update_xaxes(title="Proximity (m)")
-    fig_scatter.update_yaxes(title="Dwell Time (s)")
-    st.plotly_chart(style_figure(fig_scatter), use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with chart_bottom[1]:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    render_section_header(
-        f"View Structured Session Table For {focus_week_meta['week_label']}",
-        "Detailed session records for the selected week.",
-    )
-    session_table = focus_df[
-        [
-            "log_creation_time",
-            "target_id",
-            "dwell_tracking_area_sec",
-            "proximity_m",
-            "engagement_score",
-        ]
-    ].sort_values("log_creation_time", ascending=False)
-    st.dataframe(session_table, use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)

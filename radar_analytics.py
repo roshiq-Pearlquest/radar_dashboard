@@ -1335,12 +1335,13 @@ chart_middle = st.columns(2, gap="large")
 with chart_middle[0]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Day-Wise Average Dwell Time",
-        "Average time spent by visitors on each campaign day in the selected week.",
+        "Day-Wise Peak Time",
+        "Busiest hour on each campaign day in the selected week.",
     )
     dwell_day_df = (
-        focus_df.groupby("event_date", as_index=False)["dwell_tracking_area_sec"].mean()
-        .rename(columns={"dwell_tracking_area_sec": "avg_dwell"})
+        focus_df.groupby("event_date")["event_hour"]
+        .agg(lambda values: int(pd.Series(values).mode().iat[0]) if not values.empty else 0)
+        .reset_index(name="peak_hour")
         .sort_values("event_date")
     )
     dwell_day_df["day_label"] = pd.to_datetime(dwell_day_df["event_date"]).dt.strftime("%a")
@@ -1351,17 +1352,22 @@ with chart_middle[0]:
     fig_dwell_day.add_trace(
         go.Bar(
             x=dwell_day_df["day_label"],
-            y=dwell_day_df["avg_dwell"],
+            y=dwell_day_df["peak_hour"],
             marker=dict(color="#56d5ff", line=dict(width=0)),
-            name="Average Dwell Time",
-            text=dwell_day_df["avg_dwell"].round(1),
+            name="Peak Time",
+            text=dwell_day_df["peak_hour"].map(lambda value: f"{value:02d}:00"),
             textposition="outside",
-            hovertemplate="%{customdata}<br>Average dwell: %{y:.1f}s<extra></extra>",
+            hovertemplate="%{customdata}<br>Peak time: %{text}<extra></extra>",
             customdata=dwell_day_df["day_display"],
         )
     )
     fig_dwell_day.update_xaxes(title="Day")
-    fig_dwell_day.update_yaxes(title="Time (s)")
+    fig_dwell_day.update_yaxes(
+        title="Hour of Day",
+        tickmode="array",
+        tickvals=list(range(0, 24, 2)),
+        ticktext=[f"{hour:02d}:00" for hour in range(0, 24, 2)],
+    )
     st.plotly_chart(style_figure(fig_dwell_day), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1398,6 +1404,17 @@ with chart_middle[1]:
     fig_heatmap.update_xaxes(title="Day")
     fig_heatmap.update_yaxes(title="Engagement")
     st.plotly_chart(style_figure(fig_heatmap), use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+chart_extra = st.columns(1)
+
+with chart_extra[0]:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    render_section_header(
+        "Zone Progression Flow",
+        "Week-based movement from away to nearby to closest, using inferred progression when path data is unavailable.",
+    )
+    st.plotly_chart(build_zone_sankey(focus_zone_df, focus_df), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 chart_bottom = st.columns(2, gap="large")

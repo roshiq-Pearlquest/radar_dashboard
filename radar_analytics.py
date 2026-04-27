@@ -1292,7 +1292,7 @@ with chart_top[0]:
     )
     fig_daily.update_xaxes(title="Day")
     fig_daily.update_yaxes(title="Sessions")
-    st.plotly_chart(style_figure(fig_daily), use_container_width=True)
+    st.plotly_chart(style_figure(fig_daily), use_container_width=True, key="day_footfall_trend")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with chart_top[1]:
@@ -1319,7 +1319,7 @@ with chart_top[1]:
     )
     fig_radar.update_xaxes(title="Proximity")
     fig_radar.update_yaxes(title="Sessions")
-    st.plotly_chart(fig_radar, use_container_width=True)
+    st.plotly_chart(fig_radar, use_container_width=True, key="proximity_session_distribution")
     st.markdown("</div>", unsafe_allow_html=True)
 
 chart_middle = st.columns(2, gap="large")
@@ -1360,7 +1360,7 @@ with chart_middle[0]:
         tickvals=list(range(0, 24, 2)),
         ticktext=[f"{hour:02d}:00" for hour in range(0, 24, 2)],
     )
-    st.plotly_chart(style_figure(fig_dwell_day), use_container_width=True)
+    st.plotly_chart(style_figure(fig_dwell_day), use_container_width=True, key="day_peak_time")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with chart_middle[1]:
@@ -1409,24 +1409,6 @@ with chart_middle[1]:
         unsafe_allow_html=True,
     )
     render_card_grid(daily_summary_cards, kind="metrics")
-    render_section_header(
-        "Session Scatter",
-        "Weekly dwell time versus proximity.",
-    )
-    fig_heatmap = go.Figure()
-    fig_heatmap.add_trace(
-        go.Scatter(
-            x=focus_df["proximity_m"],
-            y=focus_df["dwell_tracking_area_sec"],
-            mode="markers",
-            marker=dict(color="#56d5ff", size=8, opacity=0.65),
-            name="Sessions",
-            text=focus_df["target_short"],
-        )
-    )
-    fig_heatmap.update_xaxes(title="Proximity (m)")
-    fig_heatmap.update_yaxes(title="Dwell Time (s)")
-    st.plotly_chart(style_figure(fig_heatmap), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 chart_extra_second = st.columns(1)
@@ -1459,7 +1441,7 @@ with chart_extra_second[0]:
         ]
     )
     fig_hourly_heatmap.update_xaxes(title="Hour of Day")
-    st.plotly_chart(style_figure(fig_hourly_heatmap), use_container_width=True)
+    st.plotly_chart(style_figure(fig_hourly_heatmap), use_container_width=True, key="hourly_engagement_heatmap")
     st.markdown("</div>", unsafe_allow_html=True)
 
 chart_bottom = st.columns(2, gap="large")
@@ -1496,7 +1478,7 @@ with chart_bottom[0]:
     )
     fig_engagement_day.update_xaxes(title="Day")
     fig_engagement_day.update_yaxes(title="Engagement")
-    st.plotly_chart(style_figure(fig_engagement_day), use_container_width=True)
+    st.plotly_chart(style_figure(fig_engagement_day), use_container_width=True, key="day_engagement_trend_bottom")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with chart_bottom[1]:
@@ -1518,5 +1500,5 @@ with chart_bottom[1]:
     )
     fig_scatter.update_xaxes(title="Proximity (m)")
     fig_scatter.update_yaxes(title="Dwell Time (s)")
-    st.plotly_chart(style_figure(fig_scatter), use_container_width=True)
+    st.plotly_chart(style_figure(fig_scatter), use_container_width=True, key="session_scatter")
     st.markdown("</div>", unsafe_allow_html=True)

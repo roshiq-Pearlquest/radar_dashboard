@@ -1365,6 +1365,76 @@ with chart_middle[0]:
 
 with chart_middle[1]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    render_section_header(
+        "Day-Wise Engagement Trend",
+        "Daily engaged sessions across the selected week.",
+    )
+    engagement_day_df = (
+        focus_df.groupby("event_date", as_index=False)["is_engaged"].sum()
+        .rename(columns={"is_engaged": "engagements"})
+        .sort_values("event_date")
+    )
+    engagement_day_df["day_label"] = pd.to_datetime(engagement_day_df["event_date"]).dt.strftime(
+        "%a"
+    )
+    engagement_day_df["day_display"] = pd.to_datetime(
+        engagement_day_df["event_date"]
+    ).dt.strftime("%a, %b %d")
+    fig_engagement_top = go.Figure()
+    fig_engagement_top.add_trace(
+        go.Bar(
+            x=engagement_day_df["day_label"],
+            y=engagement_day_df["engagements"],
+            marker=dict(color="#ff9a3d", line=dict(width=0)),
+            name="Engagements",
+            text=engagement_day_df["engagements"],
+            textposition="outside",
+            hovertemplate="%{text} engagements on %{customdata}<extra></extra>",
+            customdata=engagement_day_df["day_display"],
+        )
+    )
+    fig_engagement_top.update_xaxes(title="Day")
+    fig_engagement_top.update_yaxes(title="Engagement")
+    st.plotly_chart(style_figure(fig_engagement_top), use_container_width=True, key="day_engagement_trend_top")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+chart_extra_second = st.columns(1)
+
+with chart_extra_second[0]:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    render_section_header(
+        "Hourly Engagement Heatmap",
+        "Hour-by-hour pattern of average engagement score across the selected week.",
+    )
+    heatmap_df = (
+        focus_df.groupby("event_hour", as_index=False)["engagement_score"].mean()
+        .rename(columns={"event_hour": "Hour", "engagement_score": "Avg Score"})
+    )
+    heat_values = [heatmap_df["Avg Score"].tolist()]
+    fig_hourly_heatmap = go.Figure(
+        data=[
+            go.Heatmap(
+                z=heat_values,
+                x=heatmap_df["Hour"].tolist(),
+                y=["Engagement Score"],
+                colorscale=[
+                    [0.0, "#132135"],
+                    [0.4, "#235c93"],
+                    [0.7, "#ff9a3d"],
+                    [1.0, "#ff4242"],
+                ],
+                colorbar=dict(title="Score"),
+            )
+        ]
+    )
+    fig_hourly_heatmap.update_xaxes(title="Hour of Day")
+    st.plotly_chart(style_figure(fig_hourly_heatmap), use_container_width=True, key="hourly_engagement_heatmap")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+chart_bottom = st.columns(2, gap="large")
+
+with chart_bottom[0]:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### Focus Date")
     focus_date = st.selectbox(
         "Focus Date",
@@ -1409,76 +1479,6 @@ with chart_middle[1]:
         unsafe_allow_html=True,
     )
     render_card_grid(daily_summary_cards, kind="metrics")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-chart_extra_second = st.columns(1)
-
-with chart_extra_second[0]:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    render_section_header(
-        "Hourly Engagement Heatmap",
-        "Hour-by-hour pattern of average engagement score across the selected week.",
-    )
-    heatmap_df = (
-        focus_df.groupby("event_hour", as_index=False)["engagement_score"].mean()
-        .rename(columns={"event_hour": "Hour", "engagement_score": "Avg Score"})
-    )
-    heat_values = [heatmap_df["Avg Score"].tolist()]
-    fig_hourly_heatmap = go.Figure(
-        data=[
-            go.Heatmap(
-                z=heat_values,
-                x=heatmap_df["Hour"].tolist(),
-                y=["Engagement Score"],
-                colorscale=[
-                    [0.0, "#132135"],
-                    [0.4, "#235c93"],
-                    [0.7, "#ff9a3d"],
-                    [1.0, "#ff4242"],
-                ],
-                colorbar=dict(title="Score"),
-            )
-        ]
-    )
-    fig_hourly_heatmap.update_xaxes(title="Hour of Day")
-    st.plotly_chart(style_figure(fig_hourly_heatmap), use_container_width=True, key="hourly_engagement_heatmap")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-chart_bottom = st.columns(2, gap="large")
-
-with chart_bottom[0]:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    render_section_header(
-        "Day-Wise Engagement Trend",
-        "Daily engaged sessions across the selected week.",
-    )
-    engagement_day_df = (
-        focus_df.groupby("event_date", as_index=False)["is_engaged"].sum()
-        .rename(columns={"is_engaged": "engagements"})
-        .sort_values("event_date")
-    )
-    engagement_day_df["day_label"] = pd.to_datetime(engagement_day_df["event_date"]).dt.strftime(
-        "%a"
-    )
-    engagement_day_df["day_display"] = pd.to_datetime(
-        engagement_day_df["event_date"]
-    ).dt.strftime("%a, %b %d")
-    fig_engagement_day = go.Figure()
-    fig_engagement_day.add_trace(
-        go.Bar(
-            x=engagement_day_df["day_label"],
-            y=engagement_day_df["engagements"],
-            marker=dict(color="#ff9a3d", line=dict(width=0)),
-            name="Engagements",
-            text=engagement_day_df["engagements"],
-            textposition="outside",
-            hovertemplate="%{text} engagements on %{customdata}<extra></extra>",
-            customdata=engagement_day_df["day_display"],
-        )
-    )
-    fig_engagement_day.update_xaxes(title="Day")
-    fig_engagement_day.update_yaxes(title="Engagement")
-    st.plotly_chart(style_figure(fig_engagement_day), use_container_width=True, key="day_engagement_trend_bottom")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with chart_bottom[1]:

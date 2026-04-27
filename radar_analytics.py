@@ -1083,7 +1083,6 @@ with st.sidebar:
             historical_df["week_index"] == focus_week_index, "event_date"
         ].dropna().unique().tolist()
     )
-    st.caption("Campaign period is fixed from the start of this month through the same month next year.")
 
 focus_date = st.session_state.get("focus_date_main", week_dates[-1])
 if focus_date not in week_dates:

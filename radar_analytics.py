@@ -1406,15 +1406,37 @@ with chart_middle[1]:
     st.plotly_chart(style_figure(fig_heatmap), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-chart_extra = st.columns(1)
+chart_extra_second = st.columns(1)
 
-with chart_extra[0]:
+with chart_extra_second[0]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Zone Progression Flow",
-        "Week-based movement from away to nearby to closest, using inferred progression when path data is unavailable.",
+        "Hourly Engagement Heatmap",
+        "Hour-by-hour pattern of average engagement score across the selected week.",
     )
-    st.plotly_chart(build_zone_sankey(focus_zone_df, focus_df), use_container_width=True)
+    heatmap_df = (
+        focus_df.groupby("event_hour", as_index=False)["engagement_score"].mean()
+        .rename(columns={"event_hour": "Hour", "engagement_score": "Avg Score"})
+    )
+    heat_values = [heatmap_df["Avg Score"].tolist()]
+    fig_hourly_heatmap = go.Figure(
+        data=[
+            go.Heatmap(
+                z=heat_values,
+                x=heatmap_df["Hour"].tolist(),
+                y=["Engagement Score"],
+                colorscale=[
+                    [0.0, "#132135"],
+                    [0.4, "#235c93"],
+                    [0.7, "#ff9a3d"],
+                    [1.0, "#ff4242"],
+                ],
+                colorbar=dict(title="Score"),
+            )
+        ]
+    )
+    fig_hourly_heatmap.update_xaxes(title="Hour of Day")
+    st.plotly_chart(style_figure(fig_hourly_heatmap), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 chart_bottom = st.columns(2, gap="large")

@@ -1083,14 +1083,11 @@ with st.sidebar:
             historical_df["week_index"] == focus_week_index, "event_date"
         ].dropna().unique().tolist()
     )
-    st.markdown("## Focus Date")
-    focus_date = st.selectbox(
-        "Focus Date",
-        options=week_dates,
-        index=len(week_dates) - 1,
-        format_func=lambda value: pd.Timestamp(value).strftime("%A, %b %d %Y"),
-    )
     st.caption("Campaign period is fixed from the start of this month through the same month next year.")
+
+focus_date = st.session_state.get("focus_date_main", week_dates[-1])
+if focus_date not in week_dates:
+    focus_date = week_dates[-1]
 
 focus_df = historical_df.loc[historical_df["week_index"] == focus_week_index].copy()
 focus_zone_df = historical_zone_df.loc[
@@ -1250,16 +1247,11 @@ def render_live_monitor():
 overview_left, overview_right = st.columns([1.7, 1.0], gap="large")
 with overview_left:
     st.markdown(
-        f'<p class="mini-note">Viewing {focus_week_meta["week_display"]}. Date focus: {pd.Timestamp(focus_date).strftime("%b %d, %Y")}.</p>',
+        f'<p class="mini-note">Viewing {focus_week_meta["week_display"]}. Daily drilldown is available below.</p>',
         unsafe_allow_html=True,
     )
     render_card_grid(summary_cards, kind="metrics")
     render_card_grid(bento_cards, kind="bento")
-    st.markdown(
-        '<p class="mini-note">Date-wise snapshot for the selected day.</p>',
-        unsafe_allow_html=True,
-    )
-    render_card_grid(daily_summary_cards, kind="metrics")
 
 with overview_right:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -1373,6 +1365,50 @@ with chart_middle[0]:
 
 with chart_middle[1]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### Focus Date")
+    focus_date = st.selectbox(
+        "Focus Date",
+        options=week_dates,
+        index=week_dates.index(focus_date),
+        key="focus_date_main",
+        format_func=lambda value: pd.Timestamp(value).strftime("%A, %b %d %Y"),
+    )
+    focus_date_df = focus_df.loc[focus_df["event_date"] == focus_date].copy()
+    daily_footfall = int(len(focus_date_df))
+    daily_peak_hour = (
+        int(focus_date_df["event_hour"].mode().iat[0]) if not focus_date_df.empty else 0
+    )
+    daily_avg_dwell = (
+        float(focus_date_df["dwell_tracking_area_sec"].mean()) if daily_footfall else 0.0
+    )
+    daily_engagements = int(focus_date_df["is_engaged"].sum())
+    daily_summary_cards = [
+        {
+            "label": "Date Footfall",
+            "value": f"{daily_footfall:,}",
+            "hint": "Total visitor sessions recorded on the selected date.",
+        },
+        {
+            "label": "Date Peak Hour",
+            "value": f"{daily_peak_hour:02d}:00",
+            "hint": "Most active hour on the selected date.",
+        },
+        {
+            "label": "Date Avg Dwell",
+            "value": f"{daily_avg_dwell:.1f}s",
+            "hint": "Average time spent inside the tracking area on the selected date.",
+        },
+        {
+            "label": "Date Engagements",
+            "value": f"{daily_engagements:,}",
+            "hint": "Sessions crossing the 30-second engagement threshold on the selected date.",
+        },
+    ]
+    st.markdown(
+        '<p class="mini-note">Date-wise snapshot for the selected day.</p>',
+        unsafe_allow_html=True,
+    )
+    render_card_grid(daily_summary_cards, kind="metrics")
     render_section_header(
         "Day-Wise Engagement Trend",
         "Daily engaged sessions across the selected week.",

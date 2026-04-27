@@ -1253,9 +1253,7 @@ with overview_left:
     render_card_grid(bento_cards, kind="bento")
 
 with overview_right:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_live_monitor()
-    st.markdown("</div>", unsafe_allow_html=True)
 
 chart_top = st.columns(2, gap="large")
 

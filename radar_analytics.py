@@ -775,6 +775,57 @@ def build_weekly_summary(df: pd.DataFrame) -> pd.DataFrame:
     return summary.sort_values("week_index")
 
 
+def build_week_calendar(start_date_value: date, end_date_value: date) -> pd.DataFrame:
+    today_value = date.today()
+    visible_end_date = min(today_value, end_date_value)
+    if visible_end_date < start_date_value:
+        visible_end_date = start_date_value
+
+    week_count = ((visible_end_date - start_date_value).days // 7) + 1
+    rows = []
+    for week_index in range(1, week_count + 1):
+        week_start = pd.Timestamp(start_date_value) + pd.to_timedelta(
+            (week_index - 1) * 7, unit="D"
+        )
+        week_end = week_start + pd.to_timedelta(6, unit="D")
+        rows.append(
+            {
+                "week_index": week_index,
+                "week_label": f"Week {week_index}",
+                "week_start": week_start,
+                "week_end": week_end,
+                "week_display": (
+                    f"Week {week_index} "
+                    f"({week_start.strftime('%b %d')} - {week_end.strftime('%b %d')})"
+                ),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def merge_week_calendar(
+    week_calendar: pd.DataFrame, weekly_summary: pd.DataFrame
+) -> pd.DataFrame:
+    metrics = [
+        "total_footfall",
+        "engaged_sessions",
+        "avg_dwell",
+        "peak_hour",
+        "conversion_rate",
+    ]
+    merged = week_calendar.merge(
+        weekly_summary[["week_index"] + metrics],
+        on="week_index",
+        how="left",
+    )
+    merged["total_footfall"] = merged["total_footfall"].fillna(0).astype(int)
+    merged["engaged_sessions"] = merged["engaged_sessions"].fillna(0).astype(int)
+    merged["avg_dwell"] = merged["avg_dwell"].fillna(0.0)
+    merged["peak_hour"] = merged["peak_hour"].fillna(0).astype(int)
+    merged["conversion_rate"] = merged["conversion_rate"].fillna(0.0)
+    return merged.sort_values("week_index")
+
+
 def build_zone_distribution(zone_df: pd.DataFrame) -> pd.DataFrame:
     if zone_df.empty:
         return pd.DataFrame({"zone": DEFAULT_ZONE_ORDER, "seconds": [0.0, 0.0, 0.0]})
@@ -783,6 +834,27 @@ def build_zone_distribution(zone_df: pd.DataFrame) -> pd.DataFrame:
     all_zones = pd.DataFrame({"zone": DEFAULT_ZONE_ORDER})
     distribution = all_zones.merge(distribution, on="zone", how="left").fillna(0.0)
     return distribution
+
+
+def build_proximity_bucket_counts(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(
+            {
+                "bucket": ["Closest", "Nearby", "Away"],
+                "sessions": [0, 0, 0],
+            }
+        )
+
+    bucket_map = {
+        "Zone 3": "Closest",
+        "Zone 2": "Nearby",
+        "Zone 1": "Away",
+    }
+    bucket_df = df.copy()
+    bucket_df["bucket"] = bucket_df["proximity_m"].apply(proximity_to_zone).map(bucket_map)
+    counts = bucket_df.groupby("bucket").size().reset_index(name="sessions")
+    ordered = pd.DataFrame({"bucket": ["Closest", "Nearby", "Away"]})
+    return ordered.merge(counts, on="bucket", how="left").fillna(0)
 
 
 def build_zone_sankey(zone_df: pd.DataFrame, focus_df: pd.DataFrame) -> go.Figure:
@@ -984,7 +1056,10 @@ historical_zone_df = historical_zone_df.merge(
     on=["target_id", "log_creation_time"],
     how="left",
 )
-weekly_summary = build_weekly_summary(historical_df)
+weekly_summary = merge_week_calendar(
+    build_week_calendar(start_date_value, end_date_value),
+    build_weekly_summary(historical_df),
+)
 
 if weekly_summary.empty:
     st.warning("No weekly buckets were generated for the selected range.")
@@ -1003,19 +1078,33 @@ with st.sidebar:
             weekly_summary["week_index"] == value, "week_display"
         ].iloc[0],
     )
+    focus_week_meta = weekly_summary.loc[
+        weekly_summary["week_index"] == focus_week_index
+    ].iloc[0]
+    visible_week_end = min(
+        focus_week_meta["week_end"].date(),
+        end_date_value,
+        today,
+    )
+    week_dates = pd.date_range(
+        start=focus_week_meta["week_start"].date(),
+        end=visible_week_end,
+        freq="D",
+    ).date.tolist()
+    st.markdown("## Focus Date")
+    focus_date = st.selectbox(
+        "Focus Date",
+        options=week_dates,
+        index=len(week_dates) - 1,
+        format_func=lambda value: pd.Timestamp(value).strftime("%A, %b %d %Y"),
+    )
     st.caption("Campaign period is fixed from the start of this month through the same month next year.")
 
-focus_week_meta = weekly_summary.loc[
-    weekly_summary["week_index"] == focus_week_index
-].iloc[0]
 focus_df = historical_df.loc[historical_df["week_index"] == focus_week_index].copy()
 focus_zone_df = historical_zone_df.loc[
     historical_zone_df["week_index"] == focus_week_index
 ].copy()
-
-if focus_df.empty:
-    st.warning("No sessions were found for the selected focus week.")
-    st.stop()
+focus_date_df = focus_df.loc[focus_df["event_date"] == focus_date].copy()
 
 total_footfall = int(len(focus_df))
 peak_hour = int(focus_df["event_hour"].mode().iat[0]) if not focus_df.empty else 0
@@ -1029,6 +1118,18 @@ avg_engagement_score = (
     float(focus_df["engagement_score"].mean()) if total_footfall else 0.0
 )
 anomaly_count = int(focus_df["is_anomaly"].sum())
+
+daily_footfall = int(len(focus_date_df))
+daily_peak_hour = (
+    int(focus_date_df["event_hour"].mode().iat[0]) if not focus_date_df.empty else 0
+)
+daily_avg_dwell = (
+    float(focus_date_df["dwell_tracking_area_sec"].mean()) if daily_footfall else 0.0
+)
+daily_engagements = int(focus_date_df["is_engaged"].sum())
+daily_avg_engagement_score = (
+    float(focus_date_df["engagement_score"].mean()) if daily_footfall else 0.0
+)
 
 summary_cards = [
     {
@@ -1064,6 +1165,29 @@ bento_cards = [
         "value": f"{engagements:,}",
         "caption": "High-intent sessions that crossed the engagement threshold this week.",
         "alt": True,
+    },
+]
+
+daily_summary_cards = [
+    {
+        "label": "Date Footfall",
+        "value": f"{daily_footfall:,}",
+        "hint": "Total visitor sessions recorded on the selected date.",
+    },
+    {
+        "label": "Date Peak Hour",
+        "value": f"{daily_peak_hour:02d}:00",
+        "hint": "Most active hour on the selected date.",
+    },
+    {
+        "label": "Date Avg Dwell",
+        "value": f"{daily_avg_dwell:.1f}s",
+        "hint": "Average time spent inside the tracking area on the selected date.",
+    },
+    {
+        "label": "Date Engagements",
+        "value": f"{daily_engagements:,}",
+        "hint": "Sessions crossing the 30-second engagement threshold on the selected date.",
     },
 ]
 
@@ -1134,11 +1258,16 @@ def render_live_monitor():
 overview_left, overview_right = st.columns([1.7, 1.0], gap="large")
 with overview_left:
     st.markdown(
-        f'<p class="mini-note">Viewing {focus_week_meta["week_display"]}.</p>',
+        f'<p class="mini-note">Viewing {focus_week_meta["week_display"]}. Date focus: {pd.Timestamp(focus_date).strftime("%b %d, %Y")}.</p>',
         unsafe_allow_html=True,
     )
     render_card_grid(summary_cards, kind="metrics")
     render_card_grid(bento_cards, kind="bento")
+    st.markdown(
+        '<p class="mini-note">Date-wise snapshot for the selected day.</p>',
+        unsafe_allow_html=True,
+    )
+    render_card_grid(daily_summary_cards, kind="metrics")
 
 with overview_right:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -1150,25 +1279,34 @@ chart_top = st.columns(2, gap="large")
 with chart_top[0]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Week-Wise Footfall Trend",
-        "Weekly rollup across the selected date range for quick performance comparison.",
+        "Day-Wise Footfall Trend",
+        "Daily footfall across the selected week, focused on the campaign operating days.",
     )
-    trend_df = weekly_summary.copy()
+    trend_df = (
+        focus_df.groupby("event_date", as_index=False)
+        .size()
+        .rename(columns={"size": "total_footfall"})
+        .sort_values("event_date")
+    )
+    trend_df["day_label"] = pd.to_datetime(trend_df["event_date"]).dt.strftime("%a")
+    trend_df["day_display"] = pd.to_datetime(trend_df["event_date"]).dt.strftime(
+        "%a, %b %d"
+    )
     fig_daily = go.Figure()
     fig_daily.add_trace(
         go.Scatter(
-            x=trend_df["week_label"],
+            x=trend_df["day_label"],
             y=trend_df["total_footfall"],
             mode="lines+markers",
             fill="tozeroy",
             line=dict(color="#56d5ff", width=3),
             marker=dict(size=8, color="#ff9a3d"),
-            name="Weekly Footfall",
-            text=trend_df["week_display"],
+            name="Daily Footfall",
+            text=trend_df["day_display"],
             hovertemplate="%{text}<br>Footfall: %{y}<extra></extra>",
         )
     )
-    fig_daily.update_xaxes(title="Week")
+    fig_daily.update_xaxes(title="Day")
     fig_daily.update_yaxes(title="Sessions")
     st.plotly_chart(style_figure(fig_daily), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -1176,37 +1314,27 @@ with chart_top[0]:
 with chart_top[1]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Zone Dwell Radar",
-        "Weekly zone dwell distribution using sensor zones when available, otherwise proximity-derived fallback zones.",
+        "Proximity Session Distribution",
+        "Session counts by visitor closeness to the campaign area.",
     )
-    zone_distribution = build_zone_distribution(focus_zone_df)
-    polar_theta = zone_distribution["zone"].tolist()
-    polar_r = zone_distribution["seconds"].tolist()
+    proximity_distribution = build_proximity_bucket_counts(focus_df)
     fig_radar = go.Figure()
     fig_radar.add_trace(
-        go.Scatterpolar(
-            r=polar_r + polar_r[:1],
-            theta=polar_theta + polar_theta[:1],
-            fill="toself",
-            line=dict(color="#ff4242", width=3),
-            marker=dict(color="#ff9a3d", size=9),
-            name="Zone Dwell",
+        go.Bar(
+            x=proximity_distribution["bucket"],
+            y=proximity_distribution["sessions"],
+            marker=dict(
+                color=["#ff4242", "#ff9a3d", "#56d5ff"],
+                line=dict(width=0),
+            ),
+            name="Sessions",
+            text=proximity_distribution["sessions"],
+            textposition="outside",
+            hovertemplate="%{x}<br>Sessions: %{y}<extra></extra>",
         )
     )
-    fig_radar.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)",
-            radialaxis=dict(
-                gridcolor="rgba(255,255,255,0.12)",
-                linecolor="rgba(255,255,255,0.16)",
-            ),
-            angularaxis=dict(gridcolor="rgba(255,255,255,0.08)"),
-        ),
-        margin=dict(l=20, r=20, t=20, b=20),
-        font=dict(family="IBM Plex Sans, sans-serif", color="#e9f0fb"),
-    )
+    fig_radar.update_xaxes(title="Proximity")
+    fig_radar.update_yaxes(title="Sessions")
     st.plotly_chart(fig_radar, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1224,32 +1352,35 @@ with chart_middle[0]:
 with chart_middle[1]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Hourly Engagement Heatmap",
-        "Hour-by-hour pattern of average engagement score across the selected week.",
+        "Day-Wise Engagement Trend",
+        "Daily engaged sessions across the selected week.",
     )
-    heatmap_df = (
-        focus_df.groupby("event_hour", as_index=False)["engagement_score"].mean()
-        .rename(columns={"event_hour": "Hour", "engagement_score": "Avg Score"})
+    engagement_day_df = (
+        focus_df.groupby("event_date", as_index=False)["is_engaged"].sum()
+        .rename(columns={"is_engaged": "engagements"})
+        .sort_values("event_date")
     )
-    heat_values = [heatmap_df["Avg Score"].tolist()]
-    fig_heatmap = go.Figure(
-        data=
-        [
-            go.Heatmap(
-                z=heat_values,
-                x=heatmap_df["Hour"].tolist(),
-                y=["Engagement Score"],
-                colorscale=[
-                    [0.0, "#132135"],
-                    [0.4, "#235c93"],
-                    [0.7, "#ff9a3d"],
-                    [1.0, "#ff4242"],
-                ],
-                colorbar=dict(title="Score"),
-            )
-        ]
+    engagement_day_df["day_label"] = pd.to_datetime(engagement_day_df["event_date"]).dt.strftime(
+        "%a"
     )
-    fig_heatmap.update_xaxes(title="Hour of Day")
+    engagement_day_df["day_display"] = pd.to_datetime(
+        engagement_day_df["event_date"]
+    ).dt.strftime("%a, %b %d")
+    fig_heatmap = go.Figure()
+    fig_heatmap.add_trace(
+        go.Bar(
+            x=engagement_day_df["day_label"],
+            y=engagement_day_df["engagements"],
+            marker=dict(color="#ff9a3d", line=dict(width=0)),
+            name="Engagements",
+            text=engagement_day_df["engagements"],
+            textposition="outside",
+            hovertemplate="%{text} engagements on %{customdata}<extra></extra>",
+            customdata=engagement_day_df["day_display"],
+        )
+    )
+    fig_heatmap.update_xaxes(title="Day")
+    fig_heatmap.update_yaxes(title="Engagement")
     st.plotly_chart(style_figure(fig_heatmap), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 

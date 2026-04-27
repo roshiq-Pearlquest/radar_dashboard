@@ -1335,10 +1335,34 @@ chart_middle = st.columns(2, gap="large")
 with chart_middle[0]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
-        "Zone Progression Flow",
-        "Sankey view of zone movement during the selected week. Falls back to inferred progression from proximity when path data is missing.",
+        "Day-Wise Average Dwell Time",
+        "Average time spent by visitors on each campaign day in the selected week.",
     )
-    st.plotly_chart(build_zone_sankey(focus_zone_df, focus_df), use_container_width=True)
+    dwell_day_df = (
+        focus_df.groupby("event_date", as_index=False)["dwell_tracking_area_sec"].mean()
+        .rename(columns={"dwell_tracking_area_sec": "avg_dwell"})
+        .sort_values("event_date")
+    )
+    dwell_day_df["day_label"] = pd.to_datetime(dwell_day_df["event_date"]).dt.strftime("%a")
+    dwell_day_df["day_display"] = pd.to_datetime(dwell_day_df["event_date"]).dt.strftime(
+        "%a, %b %d"
+    )
+    fig_dwell_day = go.Figure()
+    fig_dwell_day.add_trace(
+        go.Bar(
+            x=dwell_day_df["day_label"],
+            y=dwell_day_df["avg_dwell"],
+            marker=dict(color="#56d5ff", line=dict(width=0)),
+            name="Average Dwell Time",
+            text=dwell_day_df["avg_dwell"].round(1),
+            textposition="outside",
+            hovertemplate="%{customdata}<br>Average dwell: %{y:.1f}s<extra></extra>",
+            customdata=dwell_day_df["day_display"],
+        )
+    )
+    fig_dwell_day.update_xaxes(title="Day")
+    fig_dwell_day.update_yaxes(title="Time (s)")
+    st.plotly_chart(style_figure(fig_dwell_day), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with chart_middle[1]:
@@ -1413,8 +1437,6 @@ with chart_bottom[1]:
             "dwell_tracking_area_sec",
             "proximity_m",
             "engagement_score",
-            "is_anomaly",
-            "anomaly_reason",
         ]
     ].sort_values("log_creation_time", ascending=False)
     st.dataframe(session_table, use_container_width=True, hide_index=True)

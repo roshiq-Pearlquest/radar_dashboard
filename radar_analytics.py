@@ -1056,10 +1056,7 @@ historical_zone_df = historical_zone_df.merge(
     on=["target_id", "log_creation_time"],
     how="left",
 )
-weekly_summary = merge_week_calendar(
-    build_week_calendar(start_date_value, end_date_value),
-    build_weekly_summary(historical_df),
-)
+weekly_summary = build_weekly_summary(historical_df)
 
 if weekly_summary.empty:
     st.warning("No weekly buckets were generated for the selected range.")
@@ -1081,16 +1078,11 @@ with st.sidebar:
     focus_week_meta = weekly_summary.loc[
         weekly_summary["week_index"] == focus_week_index
     ].iloc[0]
-    visible_week_end = min(
-        focus_week_meta["week_end"].date(),
-        end_date_value,
-        today,
+    week_dates = sorted(
+        historical_df.loc[
+            historical_df["week_index"] == focus_week_index, "event_date"
+        ].dropna().unique().tolist()
     )
-    week_dates = pd.date_range(
-        start=focus_week_meta["week_start"].date(),
-        end=visible_week_end,
-        freq="D",
-    ).date.tolist()
     st.markdown("## Focus Date")
     focus_date = st.selectbox(
         "Focus Date",

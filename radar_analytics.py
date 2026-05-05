@@ -1496,20 +1496,21 @@ with chart_bottom[1]:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     render_section_header(
         "Session Scatter",
-        "Weekly dwell time versus proximity.",
+        "Weekly dwell time versus proximity within 2 meters.",
     )
+    scatter_df = focus_df.loc[focus_df["proximity_m"] <= 2].copy()
     fig_scatter = go.Figure()
     fig_scatter.add_trace(
         go.Scatter(
-            x=focus_df["proximity_m"],
-            y=focus_df["dwell_tracking_area_sec"],
+            x=scatter_df["proximity_m"],
+            y=scatter_df["dwell_tracking_area_sec"],
             mode="markers",
             marker=dict(color="#56d5ff", size=8, opacity=0.65),
             name="Sessions",
-            text=focus_df["target_short"],
+            text=scatter_df["target_short"],
         )
     )
-    fig_scatter.update_xaxes(title="Proximity (m)")
+    fig_scatter.update_xaxes(title="Proximity (m)", range=[0, 2])
     fig_scatter.update_yaxes(title="Dwell Time (s)")
     st.plotly_chart(style_figure(fig_scatter), use_container_width=True, key="session_scatter")
     st.markdown("</div>", unsafe_allow_html=True)

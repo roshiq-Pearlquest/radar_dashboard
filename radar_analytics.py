@@ -30,6 +30,7 @@ HEADERS = {"x-api-key": API_KEY}
 LIVE_LOOKBACK_MINUTES = 10
 MAX_ENGAGEMENT_DISTANCE = 10.0
 DEFAULT_ZONE_ORDER = ["Zone 1", "Zone 2", "Zone 3"]
+CAMPAIGN_START_DATE = date(2026, 4, 1)
 
 
 def load_page_icon():
@@ -43,7 +44,7 @@ def image_to_base64(path: Path) -> str:
 
 
 def get_default_campaign_window(today_value: date) -> tuple[date, date]:
-    start_date = today_value.replace(day=1)
+    start_date = CAMPAIGN_START_DATE
     target_year = start_date.year + 1
     target_month = start_date.month
     if target_month == 12:
@@ -124,6 +125,7 @@ def inject_styles():
         }
 
         .hero-shell,
+        .hero-copy-shell,
         .glass-card,
         .metric-card,
         .bento-card,
@@ -135,6 +137,13 @@ def inject_styles():
         }
 
         .hero-shell {
+            background: linear-gradient(135deg, rgba(10, 14, 20, 0.88), rgba(24, 30, 45, 0.72));
+            border-radius: 32px;
+            padding: 1.6rem 1.8rem;
+            min-height: 250px;
+        }
+
+        .hero-copy-shell {
             background: linear-gradient(135deg, rgba(10, 14, 20, 0.88), rgba(24, 30, 45, 0.72));
             border-radius: 32px;
             padding: 1.6rem 1.8rem;
@@ -161,12 +170,13 @@ def inject_styles():
 
         .hero-logo-shell img {
             width: 100%;
-            max-width: 220px;
+            max-width: 280px;
             height: auto;
             object-fit: contain;
         }
 
-        .hero-shell .eyebrow {
+        .hero-shell .eyebrow,
+        .hero-copy-shell .eyebrow {
             color: var(--orange);
             text-transform: uppercase;
             letter-spacing: 0.24em;
@@ -174,13 +184,15 @@ def inject_styles():
             margin-bottom: 0.7rem;
         }
 
-        .hero-shell h1 {
+        .hero-shell h1,
+        .hero-copy-shell h1 {
             margin: 0 0 0.7rem 0;
             font-size: 3rem;
             line-height: 0.98;
         }
 
-        .hero-shell p {
+        .hero-shell p,
+        .hero-copy-shell p {
             color: var(--text-1);
             font-size: 1rem;
             max-width: 46rem;
@@ -952,35 +964,37 @@ def build_anomaly_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def render_header(start_date_value: date, end_date_value: date):
-    logo_markup = ""
     hero_image_path = HERO_IMAGE_PATH if HERO_IMAGE_PATH.exists() else LOGO_PATH
-    if hero_image_path.exists():
-        logo_markup = (
-            f'<div class="hero-logo-shell"><img src="data:image/png;base64,{image_to_base64(hero_image_path)}" '
-            'alt="Campaign logo"></div>'
-        )
+    hero_left, hero_right = st.columns([0.9, 1.7], gap="large")
 
-    st.markdown(
-        f"""
-        <div class="hero-shell">
-            <div class="hero-grid">
-                {logo_markup}
-                <div>
-                    <div class="eyebrow">Powered by PearlQuest</div>
-                    <h1>Zing Marketing Pilot Campaign, Powered by PearlQuest</h1>
-                    <p>
-                        Weekly campaign performance, engagement intelligence, and live audience monitoring
-                        for the WOW Pasta pilot activation powered by PearlQuest.
-                    </p>
-                    <div class="hero-tags">
-                        <span>Campaign window: {start_date_value} to {end_date_value}</span>
-                    </div>
+    with hero_left:
+        if hero_image_path.exists():
+            st.markdown(
+                f"""
+                <div class="hero-logo-shell">
+                    <img src="data:image/png;base64,{image_to_base64(hero_image_path)}" alt="Campaign logo">
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    with hero_right:
+        st.markdown(
+            f"""
+            <div class="hero-copy-shell">
+                <div class="eyebrow">Powered by PearlQuest</div>
+                <h1>Zing Marketing Pilot Campaign, Powered by PearlQuest</h1>
+                <p>
+                    Weekly campaign performance, engagement intelligence, and live audience monitoring
+                    for the WOW Pasta pilot activation powered by PearlQuest.
+                </p>
+                <div class="hero-tags">
+                    <span>Campaign window: {start_date_value} to {end_date_value}</span>
                 </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def render_status_card(
